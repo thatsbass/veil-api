@@ -15,6 +15,3 @@ vendor/
 # IDE
 .idea/
 .vscode/
-.claude/
-
-CLAUDE.md
