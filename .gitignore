@@ -1,0 +1,19 @@
+# Env
+.env
+*.env
+
+# Binaires
+bin/
+*.exe
+
+# Go
+vendor/
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+.claude/settings.json
