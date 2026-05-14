@@ -1,0 +1,393 @@
+basePath: /
+definitions:
+  gateway.AnthropicMessagesRequest:
+    properties:
+      max_tokens:
+        example: 1024
+        type: integer
+      messages:
+        items:
+          $ref: '#/definitions/gateway.SwaggerMessage'
+        type: array
+      model:
+        example: deepseek-chat
+        type: string
+      stream:
+        example: false
+        type: boolean
+      system:
+        example: You are a helpful assistant.
+        type: string
+    type: object
+  gateway.AnthropicMessagesResponse:
+    properties:
+      content:
+        items:
+          $ref: '#/definitions/gateway.SwaggerContentBlock'
+        type: array
+      id:
+        example: msg_01XFDUDYJgAACzvnptvVoYEL
+        type: string
+      model:
+        example: deepseek-chat
+        type: string
+      role:
+        example: assistant
+        type: string
+      stop_reason:
+        example: end_turn
+        type: string
+      type:
+        example: message
+        type: string
+      usage:
+        $ref: '#/definitions/gateway.SwaggerAnthropicUsage'
+    type: object
+  gateway.ErrorResponse:
+    properties:
+      error:
+        example: invalid api key
+        type: string
+    type: object
+  gateway.HealthResponse:
+    properties:
+      status:
+        example: ok
+        type: string
+    type: object
+  gateway.ModelObject:
+    properties:
+      id:
+        example: deepseek-chat
+        type: string
+      object:
+        example: model
+        type: string
+      owned_by:
+        example: veil
+        type: string
+    type: object
+  gateway.ModelsListResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/gateway.ModelObject'
+        type: array
+      object:
+        example: list
+        type: string
+    type: object
+  gateway.OpenAIChatChoice:
+    properties:
+      finish_reason:
+        example: stop
+        type: string
+      index:
+        example: 0
+        type: integer
+      message:
+        $ref: '#/definitions/gateway.SwaggerMessage'
+    type: object
+  gateway.OpenAIChatRequest:
+    properties:
+      max_tokens:
+        example: 1024
+        type: integer
+      messages:
+        items:
+          $ref: '#/definitions/gateway.SwaggerMessage'
+        type: array
+      model:
+        example: deepseek-chat
+        type: string
+      stream:
+        example: false
+        type: boolean
+    type: object
+  gateway.OpenAIChatResponse:
+    properties:
+      choices:
+        items:
+          $ref: '#/definitions/gateway.OpenAIChatChoice'
+        type: array
+      id:
+        example: chatcmpl-abc123
+        type: string
+      model:
+        example: deepseek-chat
+        type: string
+      usage:
+        $ref: '#/definitions/gateway.SwaggerOpenAIUsage'
+    type: object
+  gateway.ResponsesAPIOutputItem:
+    properties:
+      content:
+        example: Hello! I can help you with many things.
+        type: string
+      role:
+        example: assistant
+        type: string
+      type:
+        example: message
+        type: string
+    type: object
+  gateway.ResponsesAPIRequest:
+    properties:
+      input:
+        items:
+          $ref: '#/definitions/gateway.SwaggerMessage'
+        type: array
+      max_output_tokens:
+        example: 1024
+        type: integer
+      model:
+        example: deepseek-chat
+        type: string
+      stream:
+        example: false
+        type: boolean
+    type: object
+  gateway.ResponsesAPIResponse:
+    properties:
+      id:
+        example: resp_abc123
+        type: string
+      model:
+        example: deepseek-chat
+        type: string
+      output:
+        items:
+          $ref: '#/definitions/gateway.ResponsesAPIOutputItem'
+        type: array
+      usage:
+        $ref: '#/definitions/gateway.SwaggerAnthropicUsage'
+    type: object
+  gateway.SwaggerAnthropicUsage:
+    properties:
+      input_tokens:
+        example: 12
+        type: integer
+      output_tokens:
+        example: 48
+        type: integer
+    type: object
+  gateway.SwaggerContentBlock:
+    properties:
+      text:
+        example: Hello! I can help you with many things.
+        type: string
+      type:
+        example: text
+        type: string
+    type: object
+  gateway.SwaggerMessage:
+    properties:
+      content:
+        example: Hello, how can you help me?
+        type: string
+      role:
+        example: user
+        type: string
+    type: object
+  gateway.SwaggerOpenAIUsage:
+    properties:
+      completion_tokens:
+        example: 48
+        type: integer
+      prompt_tokens:
+        example: 12
+        type: integer
+      total_tokens:
+        example: 60
+        type: integer
+    type: object
+host: localhost:3000
+info:
+  contact:
+    email: support@veil.dev
+    name: Support Veil
+  description: 'Gateway universel : utilise tes outils habituels (Claude CLI, Cursor,
+    Aider) avec des modèles moins chers en arrière-plan (DeepSeek, Groq, Mistral).
+    Garde ton workflow. Réduis ta facture API de 90%.'
+  title: Veil API
+  version: "1.0"
+paths:
+  /health:
+    get:
+      description: Endpoint de liveness utilisé par Dokploy / load-balancer. Retourne
+        200 si le serveur répond.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gateway.HealthResponse'
+      summary: Health check
+      tags:
+      - system
+  /v1/chat/completions:
+    post:
+      consumes:
+      - application/json
+      description: Compatible OpenAI SDK, Cursor, Aider, et tout client OpenAI-compatible.
+        Traduit automatiquement vers DeepSeek.
+      parameters:
+      - description: Corps de la requête OpenAI
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.OpenAIChatRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Réponse au format OpenAI Chat Completions
+          schema:
+            $ref: '#/definitions/gateway.OpenAIChatResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gateway.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gateway.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/gateway.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gateway.ErrorResponse'
+        "504":
+          description: Gateway Timeout
+          schema:
+            $ref: '#/definitions/gateway.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Chat Completions (format OpenAI)
+      tags:
+      - completion
+  /v1/messages:
+    post:
+      consumes:
+      - application/json
+      description: Compatible Claude CLI / Claude SDK. Traduit automatiquement vers
+        DeepSeek en arrière-plan.
+      parameters:
+      - description: Corps de la requête Anthropic
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.AnthropicMessagesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Réponse au format Anthropic Messages
+          schema:
+            $ref: '#/definitions/gateway.AnthropicMessagesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gateway.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gateway.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/gateway.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gateway.ErrorResponse'
+        "504":
+          description: Gateway Timeout
+          schema:
+            $ref: '#/definitions/gateway.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Messages (format Anthropic)
+      tags:
+      - completion
+  /v1/models:
+    get:
+      description: Retourne les modèles disponibles sur Veil. Compatible avec les
+        clients qui appellent /v1/models au démarrage (Cursor, etc.).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gateway.ModelsListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gateway.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Liste des modèles
+      tags:
+      - models
+  /v1/responses:
+    post:
+      consumes:
+      - application/json
+      description: Compatible OpenAI Responses API (Codex CLI). Traduit automatiquement
+        vers DeepSeek.
+      parameters:
+      - description: Corps de la requête Responses API
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.ResponsesAPIRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Réponse au format Responses API
+          schema:
+            $ref: '#/definitions/gateway.ResponsesAPIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gateway.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gateway.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/gateway.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gateway.ErrorResponse'
+        "504":
+          description: Gateway Timeout
+          schema:
+            $ref: '#/definitions/gateway.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Responses API (format Codex)
+      tags:
+      - completion
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    description: 'Clé API Veil. Cliquer sur "Authorize" et entrer : Bearer vl_live_xxx'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

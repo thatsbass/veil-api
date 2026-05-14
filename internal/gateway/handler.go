@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"errors"
 
 	"github.com/gofiber/fiber/v2"
@@ -41,7 +42,67 @@ func NewHandler(
 	}
 }
 
-// HandleCompletion serves POST /v1/messages, /v1/chat/completions, and /v1/responses.
+// HandleMessages completes a chat request in Anthropic Messages format.
+//
+// @Summary      Messages (format Anthropic)
+// @Description  Compatible Claude CLI / Claude SDK. Traduit automatiquement vers DeepSeek en arrière-plan.
+// @Tags         completion
+// @Accept       json
+// @Produce      json
+// @Param        body  body      AnthropicMessagesRequest   true  "Corps de la requête Anthropic"
+// @Success      200   {object}  AnthropicMessagesResponse  "Réponse au format Anthropic Messages"
+// @Failure      400   {object}  ErrorResponse
+// @Failure      401   {object}  ErrorResponse
+// @Failure      429   {object}  ErrorResponse
+// @Failure      504   {object}  ErrorResponse
+// @Failure      500   {object}  ErrorResponse
+// @Security     BearerAuth
+// @Router       /v1/messages [post]
+func (h *Handler) HandleMessages(c *fiber.Ctx) error {
+	return h.HandleCompletion(c)
+}
+
+// HandleChatCompletions completes a chat request in OpenAI Chat Completions format.
+//
+// @Summary      Chat Completions (format OpenAI)
+// @Description  Compatible OpenAI SDK, Cursor, Aider, et tout client OpenAI-compatible. Traduit automatiquement vers DeepSeek.
+// @Tags         completion
+// @Accept       json
+// @Produce      json
+// @Param        body  body      OpenAIChatRequest   true  "Corps de la requête OpenAI"
+// @Success      200   {object}  OpenAIChatResponse  "Réponse au format OpenAI Chat Completions"
+// @Failure      400   {object}  ErrorResponse
+// @Failure      401   {object}  ErrorResponse
+// @Failure      429   {object}  ErrorResponse
+// @Failure      504   {object}  ErrorResponse
+// @Failure      500   {object}  ErrorResponse
+// @Security     BearerAuth
+// @Router       /v1/chat/completions [post]
+func (h *Handler) HandleChatCompletions(c *fiber.Ctx) error {
+	return h.HandleCompletion(c)
+}
+
+// HandleResponses completes a chat request in OpenAI Responses API format.
+//
+// @Summary      Responses API (format Codex)
+// @Description  Compatible OpenAI Responses API (Codex CLI). Traduit automatiquement vers DeepSeek.
+// @Tags         completion
+// @Accept       json
+// @Produce      json
+// @Param        body  body      ResponsesAPIRequest   true  "Corps de la requête Responses API"
+// @Success      200   {object}  ResponsesAPIResponse  "Réponse au format Responses API"
+// @Failure      400   {object}  ErrorResponse
+// @Failure      401   {object}  ErrorResponse
+// @Failure      429   {object}  ErrorResponse
+// @Failure      504   {object}  ErrorResponse
+// @Failure      500   {object}  ErrorResponse
+// @Security     BearerAuth
+// @Router       /v1/responses [post]
+func (h *Handler) HandleResponses(c *fiber.Ctx) error {
+	return h.HandleCompletion(c)
+}
+
+// HandleCompletion is the shared implementation for all completion routes.
 func (h *Handler) HandleCompletion(c *fiber.Ctx) error {
 	user := c.Locals("user").(*models.User)
 	format := detectFormat(c)
@@ -92,7 +153,16 @@ func (h *Handler) recordUsage(req *models.CompletionRequest, resp *models.Comple
 	})
 }
 
-// HandleModels serves GET /v1/models for client compatibility.
+// HandleModels lists available models for client compatibility.
+//
+// @Summary      Liste des modèles
+// @Description  Retourne les modèles disponibles sur Veil. Compatible avec les clients qui appellent /v1/models au démarrage (Cursor, etc.).
+// @Tags         models
+// @Produce      json
+// @Success      200  {object}  ModelsListResponse
+// @Failure      401  {object}  ErrorResponse
+// @Security     BearerAuth
+// @Router       /v1/models [get]
 func (h *Handler) HandleModels(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"object": "list",
@@ -102,7 +172,14 @@ func (h *Handler) HandleModels(c *fiber.Ctx) error {
 	})
 }
 
-// HandleHealth serves GET /health.
+// HandleHealth returns the server liveness status.
+//
+// @Summary      Health check
+// @Description  Endpoint de liveness utilisé par Dokploy / load-balancer. Retourne 200 si le serveur répond.
+// @Tags         system
+// @Produce      json
+// @Success      200  {object}  HealthResponse
+// @Router       /health [get]
 func (h *Handler) HandleHealth(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"status": "ok"})
 }
@@ -115,6 +192,8 @@ func (h *Handler) respondError(c *fiber.Ctx, err error) error {
 
 func mapErrorToResponse(err error) (int, fiber.Map) {
 	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return fiber.StatusGatewayTimeout, fiber.Map{"error": "upstream timeout"}
 	case errors.Is(err, fiber.ErrBadRequest):
 		return fiber.StatusBadRequest, fiber.Map{"error": err.Error()}
 	default:

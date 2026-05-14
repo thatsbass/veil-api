@@ -10,5 +10,6 @@ import (
 type Provider interface {
 	Complete(ctx context.Context, req *models.CompletionRequest) (*models.CompletionResponse, error)
 	CompleteStream(ctx context.Context, req *models.CompletionRequest, out chan<- models.StreamEvent) error
+	Health(ctx context.Context) HealthResult
 	Name() string
 }

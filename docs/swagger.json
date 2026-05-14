@@ -1,0 +1,578 @@
+{
+    "schemes": [
+        "http",
+        "https"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "Gateway universel : utilise tes outils habituels (Claude CLI, Cursor, Aider) avec des modèles moins chers en arrière-plan (DeepSeek, Groq, Mistral). Garde ton workflow. Réduis ta facture API de 90%.",
+        "title": "Veil API",
+        "contact": {
+            "name": "Support Veil",
+            "email": "support@veil.dev"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:3000",
+    "basePath": "/",
+    "paths": {
+        "/health": {
+            "get": {
+                "description": "Endpoint de liveness utilisé par Dokploy / load-balancer. Retourne 200 si le serveur répond.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.HealthResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/chat/completions": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Compatible OpenAI SDK, Cursor, Aider, et tout client OpenAI-compatible. Traduit automatiquement vers DeepSeek.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "completion"
+                ],
+                "summary": "Chat Completions (format OpenAI)",
+                "parameters": [
+                    {
+                        "description": "Corps de la requête OpenAI",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/gateway.OpenAIChatRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Réponse au format OpenAI Chat Completions",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.OpenAIChatResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ErrorResponse"
+                        }
+                    },
+                    "504": {
+                        "description": "Gateway Timeout",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/messages": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Compatible Claude CLI / Claude SDK. Traduit automatiquement vers DeepSeek en arrière-plan.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "completion"
+                ],
+                "summary": "Messages (format Anthropic)",
+                "parameters": [
+                    {
+                        "description": "Corps de la requête Anthropic",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/gateway.AnthropicMessagesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Réponse au format Anthropic Messages",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.AnthropicMessagesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ErrorResponse"
+                        }
+                    },
+                    "504": {
+                        "description": "Gateway Timeout",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/models": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retourne les modèles disponibles sur Veil. Compatible avec les clients qui appellent /v1/models au démarrage (Cursor, etc.).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "models"
+                ],
+                "summary": "Liste des modèles",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ModelsListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/responses": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Compatible OpenAI Responses API (Codex CLI). Traduit automatiquement vers DeepSeek.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "completion"
+                ],
+                "summary": "Responses API (format Codex)",
+                "parameters": [
+                    {
+                        "description": "Corps de la requête Responses API",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ResponsesAPIRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Réponse au format Responses API",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ResponsesAPIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ErrorResponse"
+                        }
+                    },
+                    "504": {
+                        "description": "Gateway Timeout",
+                        "schema": {
+                            "$ref": "#/definitions/gateway.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "gateway.AnthropicMessagesRequest": {
+            "type": "object",
+            "properties": {
+                "max_tokens": {
+                    "type": "integer",
+                    "example": 1024
+                },
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.SwaggerMessage"
+                    }
+                },
+                "model": {
+                    "type": "string",
+                    "example": "deepseek-chat"
+                },
+                "stream": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "system": {
+                    "type": "string",
+                    "example": "You are a helpful assistant."
+                }
+            }
+        },
+        "gateway.AnthropicMessagesResponse": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.SwaggerContentBlock"
+                    }
+                },
+                "id": {
+                    "type": "string",
+                    "example": "msg_01XFDUDYJgAACzvnptvVoYEL"
+                },
+                "model": {
+                    "type": "string",
+                    "example": "deepseek-chat"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "assistant"
+                },
+                "stop_reason": {
+                    "type": "string",
+                    "example": "end_turn"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "message"
+                },
+                "usage": {
+                    "$ref": "#/definitions/gateway.SwaggerAnthropicUsage"
+                }
+            }
+        },
+        "gateway.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "invalid api key"
+                }
+            }
+        },
+        "gateway.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "ok"
+                }
+            }
+        },
+        "gateway.ModelObject": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "deepseek-chat"
+                },
+                "object": {
+                    "type": "string",
+                    "example": "model"
+                },
+                "owned_by": {
+                    "type": "string",
+                    "example": "veil"
+                }
+            }
+        },
+        "gateway.ModelsListResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.ModelObject"
+                    }
+                },
+                "object": {
+                    "type": "string",
+                    "example": "list"
+                }
+            }
+        },
+        "gateway.OpenAIChatChoice": {
+            "type": "object",
+            "properties": {
+                "finish_reason": {
+                    "type": "string",
+                    "example": "stop"
+                },
+                "index": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "message": {
+                    "$ref": "#/definitions/gateway.SwaggerMessage"
+                }
+            }
+        },
+        "gateway.OpenAIChatRequest": {
+            "type": "object",
+            "properties": {
+                "max_tokens": {
+                    "type": "integer",
+                    "example": 1024
+                },
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.SwaggerMessage"
+                    }
+                },
+                "model": {
+                    "type": "string",
+                    "example": "deepseek-chat"
+                },
+                "stream": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "gateway.OpenAIChatResponse": {
+            "type": "object",
+            "properties": {
+                "choices": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.OpenAIChatChoice"
+                    }
+                },
+                "id": {
+                    "type": "string",
+                    "example": "chatcmpl-abc123"
+                },
+                "model": {
+                    "type": "string",
+                    "example": "deepseek-chat"
+                },
+                "usage": {
+                    "$ref": "#/definitions/gateway.SwaggerOpenAIUsage"
+                }
+            }
+        },
+        "gateway.ResponsesAPIOutputItem": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "example": "Hello! I can help you with many things."
+                },
+                "role": {
+                    "type": "string",
+                    "example": "assistant"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "message"
+                }
+            }
+        },
+        "gateway.ResponsesAPIRequest": {
+            "type": "object",
+            "properties": {
+                "input": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.SwaggerMessage"
+                    }
+                },
+                "max_output_tokens": {
+                    "type": "integer",
+                    "example": 1024
+                },
+                "model": {
+                    "type": "string",
+                    "example": "deepseek-chat"
+                },
+                "stream": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "gateway.ResponsesAPIResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "resp_abc123"
+                },
+                "model": {
+                    "type": "string",
+                    "example": "deepseek-chat"
+                },
+                "output": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gateway.ResponsesAPIOutputItem"
+                    }
+                },
+                "usage": {
+                    "$ref": "#/definitions/gateway.SwaggerAnthropicUsage"
+                }
+            }
+        },
+        "gateway.SwaggerAnthropicUsage": {
+            "type": "object",
+            "properties": {
+                "input_tokens": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "output_tokens": {
+                    "type": "integer",
+                    "example": 48
+                }
+            }
+        },
+        "gateway.SwaggerContentBlock": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string",
+                    "example": "Hello! I can help you with many things."
+                },
+                "type": {
+                    "type": "string",
+                    "example": "text"
+                }
+            }
+        },
+        "gateway.SwaggerMessage": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "example": "Hello, how can you help me?"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "user"
+                }
+            }
+        },
+        "gateway.SwaggerOpenAIUsage": {
+            "type": "object",
+            "properties": {
+                "completion_tokens": {
+                    "type": "integer",
+                    "example": 48
+                },
+                "prompt_tokens": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "total_tokens": {
+                    "type": "integer",
+                    "example": 60
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Clé API Veil. Cliquer sur \"Authorize\" et entrer : Bearer vl_live_xxx",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}

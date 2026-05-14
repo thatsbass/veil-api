@@ -2,13 +2,17 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/thatsbass/veil/pkg/models"
 	"github.com/thatsbass/veil/pkg/utils"
 )
+
+const apiKeyCacheTTL = 5 * time.Minute
 
 // Repository looks up users by their hashed API key.
 type Repository interface {
@@ -50,6 +54,62 @@ func (r *pgRepository) FindUserByKeyHash(ctx context.Context, rawKey string) (*m
 
 func (r *pgRepository) touchKey(ctx context.Context, hash string) {
 	_, _ = r.db.Exec(ctx, `UPDATE api_keys SET last_used = NOW() WHERE key_hash = $1`, hash)
+}
+
+// --- Cached repository (Redis L1 + PostgreSQL L2) ---
+
+type cachedRepository struct {
+	pg  *pgRepository
+	rdb *redis.Client
+}
+
+// NewCachedRepository returns a Repository that checks Redis before hitting PostgreSQL.
+func NewCachedRepository(db *pgxpool.Pool, rdb *redis.Client) Repository {
+	return &cachedRepository{
+		pg:  &pgRepository{db: db},
+		rdb: rdb,
+	}
+}
+
+func (r *cachedRepository) FindUserByKeyHash(ctx context.Context, rawKey string) (*models.User, error) {
+	hash := utils.HashAPIKey(rawKey)
+	cacheKey := apiKeyCacheKey(hash)
+
+	if user, err := r.fromCache(ctx, cacheKey); err == nil {
+		return user, nil
+	}
+
+	user, err := r.pg.FindUserByKeyHash(ctx, rawKey)
+	if err != nil {
+		return nil, err
+	}
+
+	r.setCache(ctx, cacheKey, user)
+	return user, nil
+}
+
+func (r *cachedRepository) fromCache(ctx context.Context, key string) (*models.User, error) {
+	raw, err := r.rdb.Get(ctx, key).Bytes()
+	if err != nil {
+		return nil, err
+	}
+	var user models.User
+	if err := json.Unmarshal(raw, &user); err != nil {
+		return nil, fmt.Errorf("auth.cachedRepository.fromCache: %w", err)
+	}
+	return &user, nil
+}
+
+func (r *cachedRepository) setCache(ctx context.Context, key string, user *models.User) {
+	raw, err := json.Marshal(user)
+	if err != nil {
+		return
+	}
+	_ = r.rdb.Set(ctx, key, raw, apiKeyCacheTTL).Err()
+}
+
+func apiKeyCacheKey(hash string) string {
+	return fmt.Sprintf("auth:key:%s", hash)
 }
 
 // --- Redis quota checker ---

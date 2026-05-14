@@ -1,3 +1,15 @@
+// @title          Veil API
+// @version        1.0
+// @description    Gateway universel : utilise tes outils habituels (Claude CLI, Cursor, Aider) avec des modèles moins chers en arrière-plan (DeepSeek, Groq, Mistral). Garde ton workflow. Réduis ta facture API de 90%.
+// @contact.name   Support Veil
+// @contact.email  support@veil.dev
+// @host           localhost:3000
+// @BasePath       /
+// @schemes        http https
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Clé API Veil. Cliquer sur "Authorize" et entrer : Bearer vl_live_xxx
 package main
 
 import (
@@ -8,7 +20,9 @@ import (
 	"syscall"
 	"time"
 
+	fiberswagger "github.com/gofiber/swagger"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -21,8 +35,10 @@ import (
 	"github.com/thatsbass/veil/internal/billing"
 	"github.com/thatsbass/veil/internal/config"
 	"github.com/thatsbass/veil/internal/gateway"
+	"github.com/thatsbass/veil/internal/migrate"
 	"github.com/thatsbass/veil/internal/provider"
 	"github.com/thatsbass/veil/internal/translator"
+	_ "github.com/thatsbass/veil/docs"
 )
 
 func main() {
@@ -36,6 +52,11 @@ func main() {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
 	}
 
+	if err := migrate.Run(cfg.DatabaseURL); err != nil {
+		log.Fatal().Err(err).Msg("migrations failed")
+	}
+	log.Info().Msg("migrations applied")
+
 	db := mustConnectDB(cfg.DatabaseURL)
 	defer db.Close()
 
@@ -46,7 +67,7 @@ func main() {
 	deepSeek := provider.NewDeepSeek(cfg.DeepSeekAPIKey)
 
 	// Auth
-	authRepo := auth.NewPGRepository(db)
+	authRepo := auth.NewCachedRepository(db, rdb)
 	quotaChecker := auth.NewRedisQuotaChecker(rdb)
 	authSvc := auth.NewAuthService(authRepo, quotaChecker)
 
@@ -81,6 +102,10 @@ func main() {
 	})
 	app.Use(recover.New())
 	app.Use(logger.New())
+	app.Use(cors.New())
+
+	// Swagger UI — accessible à http://localhost:3000/swagger/
+	app.Get("/swagger/*", fiberswagger.HandlerDefault)
 
 	// Public routes
 	app.Get("/health", h.HandleHealth)
@@ -89,9 +114,9 @@ func main() {
 	// Authenticated routes
 	protected := app.Group("/v1", auth.Middleware(authSvc))
 	protected.Get("/models", h.HandleModels)
-	protected.Post("/messages", h.HandleCompletion)
-	protected.Post("/chat/completions", h.HandleCompletion)
-	protected.Post("/responses", h.HandleCompletion)
+	protected.Post("/messages", h.HandleMessages)
+	protected.Post("/chat/completions", h.HandleChatCompletions)
+	protected.Post("/responses", h.HandleResponses)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	log.Info().Str("addr", addr).Msg("veil server starting")

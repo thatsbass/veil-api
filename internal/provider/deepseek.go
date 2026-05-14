@@ -36,6 +36,22 @@ func NewDeepSeek(apiKey string) Provider {
 
 func (p *deepSeekProvider) Name() string { return "deepseek" }
 
+func (p *deepSeekProvider) Health(ctx context.Context) HealthResult {
+	start := time.Now()
+	_, err := p.Complete(ctx, minimalPingRequest())
+	latency := time.Since(start).Milliseconds()
+
+	result := HealthResult{
+		Provider:  p.Name(),
+		Healthy:   err == nil,
+		LatencyMs: latency,
+	}
+	if err != nil {
+		result.Error = fmt.Sprintf("provider.deepseek.Health: %v", err)
+	}
+	return result
+}
+
 func (p *deepSeekProvider) Complete(ctx context.Context, req *models.CompletionRequest) (*models.CompletionResponse, error) {
 	body := buildDeepSeekRequest(req, false)
 

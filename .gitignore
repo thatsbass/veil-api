@@ -16,4 +16,5 @@ vendor/
 .idea/
 .vscode/
 
-.claude/settings.json
+.claude/
+CLAUDE.*

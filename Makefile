@@ -1,7 +1,13 @@
-.PHONY: run build test lint migrate-up migrate-down sqlc docker-up docker-down
+.PHONY: run build test lint migrate-up migrate-down sqlc docker-up docker-down swag swag-install seed
+
+ifneq (,$(wildcard .env))
+  include .env
+  export
+endif
 
 BINARY_NAME=veil
 MIGRATE=migrate -path migrations -database "$(DATABASE_URL)"
+SWAG=$(shell go env GOPATH)/bin/swag
 
 run:
 	go run cmd/server/main.go
@@ -46,3 +52,12 @@ docker-reset:
 
 tidy:
 	go mod tidy
+
+swag-install:
+	go install github.com/swaggo/swag/cmd/swag@latest
+
+swag:
+	$(SWAG) init -g cmd/server/main.go -d ./ -o docs/ --parseInternal
+
+seed:
+	go run cmd/seed/main.go

@@ -1,7 +1,6 @@
 package billing
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/gofiber/fiber/v2"
@@ -37,6 +36,7 @@ func (h *StripeHandler) HandleWebhook(c *fiber.Ctx) error {
 	case "customer.subscription.updated", "customer.subscription.deleted":
 		if err := h.handleSubscriptionChange(event); err != nil {
 			h.log.Error().Err(err).Msg("stripe: failed to handle subscription change")
+			return c.SendStatus(fiber.StatusInternalServerError) // Stripe retries on 5xx
 		}
 	case "invoice.payment_succeeded":
 		h.log.Info().Msg("stripe: payment succeeded")
@@ -46,6 +46,8 @@ func (h *StripeHandler) HandleWebhook(c *fiber.Ctx) error {
 }
 
 func (h *StripeHandler) handleSubscriptionChange(event any) error {
-	// Phase 2: update user plan in DB based on subscription status
-	return fmt.Errorf("billing.StripeHandler.handleSubscriptionChange: not implemented")
+	// Phase 2: update user plan in DB based on subscription status.
+	// Returning nil ACKs the event to Stripe (intentional silent drop for MVP).
+	h.log.Warn().Msg("stripe: subscription change handler not yet implemented")
+	return nil
 }
