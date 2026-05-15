@@ -7,21 +7,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-const userContextKey = "user"
-
-// Middleware returns a Fiber handler that validates the Bearer token and
-// stores the resolved user in c.Locals(userContextKey).
-func Middleware(svc AuthService) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		rawKey := extractBearerToken(c)
-		user, err := svc.ValidateKey(c.Context(), rawKey)
-		if err != nil {
-			return respondAuthError(c, err)
-		}
-		c.Locals(userContextKey, user)
-		return c.Next()
-	}
-}
+const (
+	userContextKey  = "user"
+	dashboardSessionKey = "dashboard_session"
+)
 
 func extractBearerToken(c *fiber.Ctx) string {
 	header := c.Get(fiber.HeaderAuthorization)
@@ -29,6 +18,34 @@ func extractBearerToken(c *fiber.Ctx) string {
 		return after
 	}
 	return ""
+}
+
+// DashboardAuthMiddleware verifies session JWTs via the injected AuthProvider.
+// Protects /api/* — used by the Next.js dashboard only.
+func DashboardAuthMiddleware(provider AuthProvider) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		token := extractBearerToken(c)
+		if token == "" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "missing token",
+			})
+		}
+		user, err := provider.VerifyToken(c.Context(), token)
+		if err != nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "invalid session",
+			})
+		}
+		c.Locals(dashboardSessionKey, user)
+		return c.Next()
+	}
+}
+
+// DashboardUserFrom extracts the verified AuthUser from a Fiber context.
+// Returns nil if the route is not protected by DashboardAuthMiddleware.
+func DashboardUserFrom(c *fiber.Ctx) *AuthUser {
+	u, _ := c.Locals(dashboardSessionKey).(*AuthUser)
+	return u
 }
 
 func respondAuthError(c *fiber.Ctx, err error) error {

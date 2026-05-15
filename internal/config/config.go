@@ -9,18 +9,21 @@ import (
 
 type Config struct {
 	Port     int    `mapstructure:"PORT"`
+	Host     string `mapstructure:"HOST"`
 	Env      string `mapstructure:"ENV"`
 
 	DatabaseURL string `mapstructure:"DATABASE_URL"`
 	RedisURL    string `mapstructure:"REDIS_URL"`
 
 	DeepSeekAPIKey string `mapstructure:"DEEPSEEK_API_KEY"`
+	ResendAPIKey   string `mapstructure:"RESEND_API_KEY"`
 
 	StripeSecretKey      string `mapstructure:"STRIPE_SECRET_KEY"`
 	StripeWebhookSecret  string `mapstructure:"STRIPE_WEBHOOK_SECRET"`
 
-	APIKeySecret string `mapstructure:"API_KEY_SECRET"`
-	JWTSecret    string `mapstructure:"JWT_SECRET"`
+	APIKeySecret    string `mapstructure:"API_KEY_SECRET"`
+	JWTSecret       string `mapstructure:"JWT_SECRET"`
+	ClerkSecretKey  string `mapstructure:"CLERK_SECRET_KEY"`
 }
 
 func Load() (*Config, error) {
@@ -30,7 +33,8 @@ func Load() (*Config, error) {
 
 	_ = viper.ReadInConfig()
 
-	viper.SetDefault("PORT", 8080)
+	viper.SetDefault("PORT", 3000)
+	viper.SetDefault("HOST", "localhost:3000")
 	viper.SetDefault("ENV", "development")
 
 	cfg := &Config{}
