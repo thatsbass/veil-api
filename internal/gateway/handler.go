@@ -56,7 +56,7 @@ func NewHandler(
 // @Failure      429   {object}  ErrorResponse
 // @Failure      504   {object}  ErrorResponse
 // @Failure      500   {object}  ErrorResponse
-// @Security     BearerAuth
+// @Security     VeilAPIKey
 // @Router       /v1/messages [post]
 func (h *Handler) HandleMessages(c *fiber.Ctx) error {
 	return h.HandleCompletion(c)
@@ -76,7 +76,7 @@ func (h *Handler) HandleMessages(c *fiber.Ctx) error {
 // @Failure      429   {object}  ErrorResponse
 // @Failure      504   {object}  ErrorResponse
 // @Failure      500   {object}  ErrorResponse
-// @Security     BearerAuth
+// @Security     VeilAPIKey
 // @Router       /v1/chat/completions [post]
 func (h *Handler) HandleChatCompletions(c *fiber.Ctx) error {
 	return h.HandleCompletion(c)
@@ -96,7 +96,7 @@ func (h *Handler) HandleChatCompletions(c *fiber.Ctx) error {
 // @Failure      429   {object}  ErrorResponse
 // @Failure      504   {object}  ErrorResponse
 // @Failure      500   {object}  ErrorResponse
-// @Security     BearerAuth
+// @Security     VeilAPIKey
 // @Router       /v1/responses [post]
 func (h *Handler) HandleResponses(c *fiber.Ctx) error {
 	return h.HandleCompletion(c)
@@ -161,7 +161,7 @@ func (h *Handler) recordUsage(req *models.CompletionRequest, resp *models.Comple
 // @Produce      json
 // @Success      200  {object}  ModelsListResponse
 // @Failure      401  {object}  ErrorResponse
-// @Security     BearerAuth
+// @Security     VeilAPIKey
 // @Router       /v1/models [get]
 func (h *Handler) HandleModels(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{

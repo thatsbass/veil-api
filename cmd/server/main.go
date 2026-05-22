@@ -6,10 +6,15 @@
 // @host           localhost:3000
 // @BasePath       /
 // @schemes        http https
-// @securityDefinitions.apikey BearerAuth
+// @securityDefinitions.apikey DashboardAuth
 // @in header
 // @name Authorization
-// @description Clé API Veil. Cliquer sur "Authorize" et entrer : Bearer vl_live_xxx
+// @description JWT Dashboard — pour les endpoints /api/*
+
+// @securityDefinitions.apikey VeilAPIKey
+// @in header
+// @name Authorization
+// @description Clé Veil vl_live_xxx — pour les endpoints /v1/*
 package main
 
 import (
@@ -30,15 +35,24 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"github.com/thatsbass/veil/docs"
 	"github.com/thatsbass/veil/internal/analytics"
+	internalapi "github.com/thatsbass/veil/internal/api"
+	apikeys "github.com/thatsbass/veil/internal/api/keys"
+	apibilling "github.com/thatsbass/veil/internal/api/billing"
+	apiusage "github.com/thatsbass/veil/internal/api/usage"
 	"github.com/thatsbass/veil/internal/auth"
+	clerkprovider "github.com/thatsbass/veil/internal/auth/clerk"
 	"github.com/thatsbass/veil/internal/billing"
+	stripeprovider "github.com/thatsbass/veil/internal/billing/stripe"
 	"github.com/thatsbass/veil/internal/config"
 	"github.com/thatsbass/veil/internal/gateway"
+	"github.com/thatsbass/veil/internal/mailer"
+	mailernoop "github.com/thatsbass/veil/internal/mailer/noop"
+	mailerresend "github.com/thatsbass/veil/internal/mailer/resend"
 	"github.com/thatsbass/veil/internal/migrate"
 	"github.com/thatsbass/veil/internal/provider"
 	"github.com/thatsbass/veil/internal/translator"
-	_ "github.com/thatsbass/veil/docs"
 )
 
 func main() {
@@ -51,6 +65,7 @@ func main() {
 	if !cfg.IsProduction() {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
 	}
+	docs.SwaggerInfo.Host = cfg.Host
 
 	if err := migrate.Run(cfg.DatabaseURL); err != nil {
 		log.Fatal().Err(err).Msg("migrations failed")
@@ -62,6 +77,16 @@ func main() {
 
 	rdb := mustConnectRedis(cfg.RedisURL)
 	defer rdb.Close()
+
+	// Mailer — noop si RESEND_API_KEY absent (dev local)
+	var mailSvc mailer.Mailer
+	if cfg.ResendAPIKey != "" {
+		mailSvc = mailerresend.NewProvider(cfg.ResendAPIKey)
+	} else {
+		mailSvc = mailernoop.NewProvider()
+		log.Warn().Msg("RESEND_API_KEY not set, using noop mailer")
+	}
+	_ = mailSvc // sera injecté dans les handlers au fil des features
 
 	// Providers
 	deepSeek := provider.NewDeepSeek(cfg.DeepSeekAPIKey)
@@ -75,7 +100,8 @@ func main() {
 	meter := billing.NewMeter(rdb)
 	quotaMgr := billing.NewQuotaManager(rdb)
 	billingSvc := billing.NewBillingService(meter, quotaMgr)
-	stripeHandler := billing.NewStripeHandler(cfg.StripeWebhookSecret, log.Logger)
+	paymentProvider := stripeprovider.NewProvider(cfg.StripeWebhookSecret)
+	webhookHandler := billing.NewWebhookHandler(paymentProvider, log.Logger)
 
 	// Analytics
 	analyticsSvc := analytics.NewRedisTracker(rdb)
@@ -109,10 +135,27 @@ func main() {
 
 	// Public routes
 	app.Get("/health", h.HandleHealth)
-	app.Post("/webhooks/stripe", stripeHandler.HandleWebhook)
+	app.Post("/webhooks/payment", webhookHandler.Handle)
 
-	// Authenticated routes
-	protected := app.Group("/v1", auth.Middleware(authSvc))
+	// Dashboard handlers (/api/*)
+	userResolver := internalapi.NewPGUserResolver(db)
+	keysHandler := apikeys.NewHandler(userResolver, apikeys.NewPGKeyRepository(db))
+	usageHandler := apiusage.NewHandler(userResolver, billingSvc, apiusage.NewPGUsageRepository(db))
+	billingHandler := apibilling.NewHandler(userResolver, apibilling.NewPGPlanRepository(db))
+
+	// /api/* — dashboard Next.js (Clerk JWT)
+	var authProvider auth.AuthProvider = clerkprovider.NewProvider(cfg.ClerkSecretKey)
+	api := app.Group("/api", auth.DashboardAuthMiddleware(authProvider))
+	api.Post("/keys", keysHandler.CreateAPIKey)
+	api.Get("/keys", keysHandler.ListAPIKeys)
+	api.Delete("/keys/:id", keysHandler.RevokeAPIKey)
+	api.Get("/usage", usageHandler.GetCurrentUsage)
+	api.Get("/usage/history", usageHandler.GetUsageHistory)
+	api.Get("/billing/plan", billingHandler.GetCurrentPlan)
+	api.Post("/billing/upgrade", billingHandler.UpgradePlan)
+
+	// /v1/* — clients LLM (clé vl_live_xxx)
+	protected := app.Group("/v1", auth.APIKeyMiddleware(authSvc))
 	protected.Get("/models", h.HandleModels)
 	protected.Post("/messages", h.HandleMessages)
 	protected.Post("/chat/completions", h.HandleChatCompletions)

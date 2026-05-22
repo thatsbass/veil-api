@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go build ./...)",
+      "Bash(go test ./...)",
+      "Bash(go test -race ./...)",
+      "Bash(go run cmd/server/main.go)",
+      "Bash(go vet ./...)",
+      "Bash(golangci-lint run)",
+      "Bash(docker-compose up -d)",
+      "Bash(docker-compose down)",
+      "Bash(docker-compose logs *)",
+      "Bash(make *)",
+      "Bash(sqlc generate)",
+      "Bash(migrate *)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(curl * | bash)",
+      "Bash(wget * | bash)"
+    ]
+  }
+}

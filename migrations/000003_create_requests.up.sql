@@ -1,4 +1,4 @@
-CREATE TABLE requests (
+CREATE TABLE IF NOT EXISTS requests (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id     UUID NOT NULL REFERENCES users(id),
     provider    TEXT NOT NULL,
@@ -11,4 +11,4 @@ CREATE TABLE requests (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_requests_user_date ON requests(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_requests_user_date ON requests(user_id, created_at DESC);

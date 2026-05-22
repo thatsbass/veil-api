@@ -16,6 +16,316 @@
     "host": "localhost:3000",
     "basePath": "/",
     "paths": {
+        "/api/billing/plan": {
+            "get": {
+                "security": [
+                    {
+                        "DashboardAuth": []
+                    }
+                ],
+                "description": "Retourne le plan souscrit, son prix, le quota mensuel de tokens et le nombre de clés API autorisées.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "billing"
+                ],
+                "summary": "Plan actuel",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/billing.PlanRecord"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/billing.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/billing.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/billing/upgrade": {
+            "post": {
+                "security": [
+                    {
+                        "DashboardAuth": []
+                    }
+                ],
+                "description": "Génère une URL Stripe Checkout pour upgrader vers starter, pro ou team. Redirige l'utilisateur vers cette URL.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "billing"
+                ],
+                "summary": "Mettre à niveau le plan",
+                "parameters": [
+                    {
+                        "description": "Plan cible",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/billing.UpgradePlanRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "URL de paiement Stripe",
+                        "schema": {
+                            "$ref": "#/definitions/billing.UpgradePlanResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/billing.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/billing.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/billing.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/keys": {
+            "get": {
+                "security": [
+                    {
+                        "DashboardAuth": []
+                    }
+                ],
+                "description": "Retourne toutes les clés actives. La valeur brute n'est jamais exposée ici.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-keys"
+                ],
+                "summary": "Lister les clés API",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/keys.ListKeysResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/keys.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/keys.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "DashboardAuth": []
+                    }
+                ],
+                "description": "Génère une nouvelle clé vl_live_xxx. La valeur brute n'est retournée qu'une seule fois.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-keys"
+                ],
+                "summary": "Créer une clé API",
+                "parameters": [
+                    {
+                        "description": "Nom de la clé",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/keys.CreateKeyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Clé créée — conserver la valeur 'key', elle ne sera plus visible",
+                        "schema": {
+                            "$ref": "#/definitions/keys.CreateKeyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/keys.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/keys.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/keys.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/keys/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "DashboardAuth": []
+                    }
+                ],
+                "description": "Supprime définitivement la clé. Les requêtes utilisant cette clé seront immédiatement rejetées.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-keys"
+                ],
+                "summary": "Révoquer une clé API",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "\"550e8400-e29b-41d4-a716-446655440000\"",
+                        "description": "ID de la clé",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Clé révoquée"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/keys.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/keys.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/keys.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/usage": {
+            "get": {
+                "security": [
+                    {
+                        "DashboardAuth": []
+                    }
+                ],
+                "description": "Retourne les tokens consommés, le quota du plan, le pourcentage utilisé et la date de réinitialisation.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "usage"
+                ],
+                "summary": "Consommation du mois en cours",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/usage.CurrentUsageResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/usage.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/usage.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/usage/history": {
+            "get": {
+                "security": [
+                    {
+                        "DashboardAuth": []
+                    }
+                ],
+                "description": "Retourne les 50 dernières requêtes avec détail tokens, coût et latence.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "usage"
+                ],
+                "summary": "Historique des requêtes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/usage.UsageHistoryResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/usage.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/usage.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/health": {
             "get": {
                 "description": "Endpoint de liveness utilisé par Dokploy / load-balancer. Retourne 200 si le serveur répond.",
@@ -40,7 +350,7 @@
             "post": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "VeilAPIKey": []
                     }
                 ],
                 "description": "Compatible OpenAI SDK, Cursor, Aider, et tout client OpenAI-compatible. Traduit automatiquement vers DeepSeek.",
@@ -109,7 +419,7 @@
             "post": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "VeilAPIKey": []
                     }
                 ],
                 "description": "Compatible Claude CLI / Claude SDK. Traduit automatiquement vers DeepSeek en arrière-plan.",
@@ -178,7 +488,7 @@
             "get": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "VeilAPIKey": []
                     }
                 ],
                 "description": "Retourne les modèles disponibles sur Veil. Compatible avec les clients qui appellent /v1/models au démarrage (Cursor, etc.).",
@@ -209,7 +519,7 @@
             "post": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "VeilAPIKey": []
                     }
                 ],
                 "description": "Compatible OpenAI Responses API (Codex CLI). Traduit automatiquement vers DeepSeek.",
@@ -276,6 +586,54 @@
         }
     },
     "definitions": {
+        "billing.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "unauthorized"
+                }
+            }
+        },
+        "billing.PlanRecord": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "free"
+                },
+                "max_api_keys": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "price_usd": {
+                    "type": "number",
+                    "example": 0
+                },
+                "token_quota": {
+                    "type": "integer",
+                    "example": 100000
+                }
+            }
+        },
+        "billing.UpgradePlanRequest": {
+            "type": "object",
+            "properties": {
+                "plan": {
+                    "type": "string",
+                    "example": "starter"
+                }
+            }
+        },
+        "billing.UpgradePlanResponse": {
+            "type": "object",
+            "properties": {
+                "checkout_url": {
+                    "type": "string",
+                    "example": "https://checkout.stripe.com/pay/cs_test_xxx"
+                }
+            }
+        },
         "gateway.AnthropicMessagesRequest": {
             "type": "object",
             "properties": {
@@ -565,11 +923,170 @@
                     "example": 60
                 }
             }
+        },
+        "keys.CreateKeyRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "cursor-work"
+                }
+            }
+        },
+        "keys.CreateKeyResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-05-15T00:00:00Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "key": {
+                    "type": "string",
+                    "example": "vl_live_aB3xK9mN2pQrS7tU1vW4yZ8cD6eF0gH5jI"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "cursor-work"
+                }
+            }
+        },
+        "keys.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "key not found"
+                }
+            }
+        },
+        "keys.KeyItem": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-05-01T00:00:00Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "last_used": {
+                    "type": "string",
+                    "example": "2026-05-15T10:30:00Z"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "cursor-work"
+                }
+            }
+        },
+        "keys.ListKeysResponse": {
+            "type": "object",
+            "properties": {
+                "keys": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/keys.KeyItem"
+                    }
+                }
+            }
+        },
+        "usage.CurrentUsageResponse": {
+            "type": "object",
+            "properties": {
+                "percent": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "quota_tokens": {
+                    "type": "integer",
+                    "example": 100000
+                },
+                "resets_at": {
+                    "type": "string",
+                    "example": "2026-06-01T00:00:00Z"
+                },
+                "used_tokens": {
+                    "type": "integer",
+                    "example": 12500
+                }
+            }
+        },
+        "usage.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "unauthorized"
+                }
+            }
+        },
+        "usage.RequestRecord": {
+            "type": "object",
+            "properties": {
+                "cost_usd": {
+                    "type": "number",
+                    "example": 0.000064
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-05-15T10:30:00Z"
+                },
+                "format": {
+                    "type": "string",
+                    "example": "anthropic"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "latency_ms": {
+                    "type": "integer",
+                    "example": 823
+                },
+                "provider": {
+                    "type": "string",
+                    "example": "deepseek"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "success"
+                },
+                "tokens_in": {
+                    "type": "integer",
+                    "example": 120
+                },
+                "tokens_out": {
+                    "type": "integer",
+                    "example": 340
+                }
+            }
+        },
+        "usage.UsageHistoryResponse": {
+            "type": "object",
+            "properties": {
+                "requests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/usage.RequestRecord"
+                    }
+                }
+            }
         }
     },
     "securityDefinitions": {
-        "BearerAuth": {
-            "description": "Clé API Veil. Cliquer sur \"Authorize\" et entrer : Bearer vl_live_xxx",
+        "DashboardAuth": {
+            "description": "JWT Dashboard — pour les endpoints /api/*",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        },
+        "VeilAPIKey": {
+            "description": "Clé Veil vl_live_xxx — pour les endpoints /v1/*",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"

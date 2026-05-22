@@ -1,5 +1,38 @@
 basePath: /
 definitions:
+  billing.ErrorResponse:
+    properties:
+      error:
+        example: unauthorized
+        type: string
+    type: object
+  billing.PlanRecord:
+    properties:
+      id:
+        example: free
+        type: string
+      max_api_keys:
+        example: 1
+        type: integer
+      price_usd:
+        example: 0
+        type: number
+      token_quota:
+        example: 100000
+        type: integer
+    type: object
+  billing.UpgradePlanRequest:
+    properties:
+      plan:
+        example: starter
+        type: string
+    type: object
+  billing.UpgradePlanResponse:
+    properties:
+      checkout_url:
+        example: https://checkout.stripe.com/pay/cs_test_xxx
+        type: string
+    type: object
   gateway.AnthropicMessagesRequest:
     properties:
       max_tokens:
@@ -201,6 +234,113 @@ definitions:
         example: 60
         type: integer
     type: object
+  keys.CreateKeyRequest:
+    properties:
+      name:
+        example: cursor-work
+        type: string
+    type: object
+  keys.CreateKeyResponse:
+    properties:
+      created_at:
+        example: "2026-05-15T00:00:00Z"
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      key:
+        example: vl_live_aB3xK9mN2pQrS7tU1vW4yZ8cD6eF0gH5jI
+        type: string
+      name:
+        example: cursor-work
+        type: string
+    type: object
+  keys.ErrorResponse:
+    properties:
+      error:
+        example: key not found
+        type: string
+    type: object
+  keys.KeyItem:
+    properties:
+      created_at:
+        example: "2026-05-01T00:00:00Z"
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      last_used:
+        example: "2026-05-15T10:30:00Z"
+        type: string
+      name:
+        example: cursor-work
+        type: string
+    type: object
+  keys.ListKeysResponse:
+    properties:
+      keys:
+        items:
+          $ref: '#/definitions/keys.KeyItem'
+        type: array
+    type: object
+  usage.CurrentUsageResponse:
+    properties:
+      percent:
+        example: 12
+        type: integer
+      quota_tokens:
+        example: 100000
+        type: integer
+      resets_at:
+        example: "2026-06-01T00:00:00Z"
+        type: string
+      used_tokens:
+        example: 12500
+        type: integer
+    type: object
+  usage.ErrorResponse:
+    properties:
+      error:
+        example: unauthorized
+        type: string
+    type: object
+  usage.RequestRecord:
+    properties:
+      cost_usd:
+        example: 6.4e-05
+        type: number
+      created_at:
+        example: "2026-05-15T10:30:00Z"
+        type: string
+      format:
+        example: anthropic
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      latency_ms:
+        example: 823
+        type: integer
+      provider:
+        example: deepseek
+        type: string
+      status:
+        example: success
+        type: string
+      tokens_in:
+        example: 120
+        type: integer
+      tokens_out:
+        example: 340
+        type: integer
+    type: object
+  usage.UsageHistoryResponse:
+    properties:
+      requests:
+        items:
+          $ref: '#/definitions/usage.RequestRecord'
+        type: array
+    type: object
 host: localhost:3000
 info:
   contact:
@@ -212,6 +352,208 @@ info:
   title: Veil API
   version: "1.0"
 paths:
+  /api/billing/plan:
+    get:
+      description: Retourne le plan souscrit, son prix, le quota mensuel de tokens
+        et le nombre de clés API autorisées.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/billing.PlanRecord'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/billing.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/billing.ErrorResponse'
+      security:
+      - DashboardAuth: []
+      summary: Plan actuel
+      tags:
+      - billing
+  /api/billing/upgrade:
+    post:
+      consumes:
+      - application/json
+      description: Génère une URL Stripe Checkout pour upgrader vers starter, pro
+        ou team. Redirige l'utilisateur vers cette URL.
+      parameters:
+      - description: Plan cible
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/billing.UpgradePlanRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: URL de paiement Stripe
+          schema:
+            $ref: '#/definitions/billing.UpgradePlanResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/billing.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/billing.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/billing.ErrorResponse'
+      security:
+      - DashboardAuth: []
+      summary: Mettre à niveau le plan
+      tags:
+      - billing
+  /api/keys:
+    get:
+      description: Retourne toutes les clés actives. La valeur brute n'est jamais
+        exposée ici.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/keys.ListKeysResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/keys.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/keys.ErrorResponse'
+      security:
+      - DashboardAuth: []
+      summary: Lister les clés API
+      tags:
+      - api-keys
+    post:
+      consumes:
+      - application/json
+      description: Génère une nouvelle clé vl_live_xxx. La valeur brute n'est retournée
+        qu'une seule fois.
+      parameters:
+      - description: Nom de la clé
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/keys.CreateKeyRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Clé créée — conserver la valeur 'key', elle ne sera plus visible
+          schema:
+            $ref: '#/definitions/keys.CreateKeyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/keys.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/keys.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/keys.ErrorResponse'
+      security:
+      - DashboardAuth: []
+      summary: Créer une clé API
+      tags:
+      - api-keys
+  /api/keys/{id}:
+    delete:
+      description: Supprime définitivement la clé. Les requêtes utilisant cette clé
+        seront immédiatement rejetées.
+      parameters:
+      - description: ID de la clé
+        example: '"550e8400-e29b-41d4-a716-446655440000"'
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Clé révoquée
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/keys.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/keys.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/keys.ErrorResponse'
+      security:
+      - DashboardAuth: []
+      summary: Révoquer une clé API
+      tags:
+      - api-keys
+  /api/usage:
+    get:
+      description: Retourne les tokens consommés, le quota du plan, le pourcentage
+        utilisé et la date de réinitialisation.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/usage.CurrentUsageResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/usage.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/usage.ErrorResponse'
+      security:
+      - DashboardAuth: []
+      summary: Consommation du mois en cours
+      tags:
+      - usage
+  /api/usage/history:
+    get:
+      description: Retourne les 50 dernières requêtes avec détail tokens, coût et
+        latence.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/usage.UsageHistoryResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/usage.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/usage.ErrorResponse'
+      security:
+      - DashboardAuth: []
+      summary: Historique des requêtes
+      tags:
+      - usage
   /health:
     get:
       description: Endpoint de liveness utilisé par Dokploy / load-balancer. Retourne
@@ -267,7 +609,7 @@ paths:
           schema:
             $ref: '#/definitions/gateway.ErrorResponse'
       security:
-      - BearerAuth: []
+      - VeilAPIKey: []
       summary: Chat Completions (format OpenAI)
       tags:
       - completion
@@ -312,7 +654,7 @@ paths:
           schema:
             $ref: '#/definitions/gateway.ErrorResponse'
       security:
-      - BearerAuth: []
+      - VeilAPIKey: []
       summary: Messages (format Anthropic)
       tags:
       - completion
@@ -332,7 +674,7 @@ paths:
           schema:
             $ref: '#/definitions/gateway.ErrorResponse'
       security:
-      - BearerAuth: []
+      - VeilAPIKey: []
       summary: Liste des modèles
       tags:
       - models
@@ -377,7 +719,7 @@ paths:
           schema:
             $ref: '#/definitions/gateway.ErrorResponse'
       security:
-      - BearerAuth: []
+      - VeilAPIKey: []
       summary: Responses API (format Codex)
       tags:
       - completion
@@ -385,8 +727,13 @@ schemes:
 - http
 - https
 securityDefinitions:
-  BearerAuth:
-    description: 'Clé API Veil. Cliquer sur "Authorize" et entrer : Bearer vl_live_xxx'
+  DashboardAuth:
+    description: JWT Dashboard — pour les endpoints /api/*
+    in: header
+    name: Authorization
+    type: apiKey
+  VeilAPIKey:
+    description: Clé Veil vl_live_xxx — pour les endpoints /v1/*
     in: header
     name: Authorization
     type: apiKey

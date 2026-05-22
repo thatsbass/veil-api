@@ -37,14 +37,14 @@ func NewPGRepository(db *pgxpool.Pool) Repository {
 func (r *pgRepository) FindUserByKeyHash(ctx context.Context, rawKey string) (*models.User, error) {
 	hash := utils.HashAPIKey(rawKey)
 	row := r.db.QueryRow(ctx, `
-		SELECT u.id, u.email, u.plan, u.stripe_id, u.created_at, u.updated_at
+		SELECT u.id, u.email, u.plan, u.payment_customer_id, u.created_at, u.updated_at
 		FROM api_keys k
 		JOIN users u ON u.id = k.user_id
 		WHERE k.key_hash = $1
 	`, hash)
 
 	user := &models.User{}
-	if err := row.Scan(&user.ID, &user.Email, &user.Plan, &user.StripeID, &user.CreatedAt, &user.UpdatedAt); err != nil {
+	if err := row.Scan(&user.ID, &user.Email, &user.Plan, &user.PaymentCustomerID, &user.CreatedAt, &user.UpdatedAt); err != nil {
 		return nil, fmt.Errorf("auth.pgRepository.FindUserByKeyHash: %w", err)
 	}
 
