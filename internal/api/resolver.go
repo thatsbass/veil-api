@@ -26,11 +26,11 @@ func NewPGUserResolver(db *pgxpool.Pool) UserResolver {
 
 func (r *pgUserResolver) ResolveUser(ctx context.Context, email string) (*models.User, error) {
 	row := r.db.QueryRow(ctx, `
-		SELECT id, email, plan, stripe_id, created_at, updated_at
+		SELECT id, email, plan, payment_customer_id, created_at, updated_at
 		FROM users WHERE email = $1
 	`, email)
 	u := &models.User{}
-	if err := row.Scan(&u.ID, &u.Email, &u.Plan, &u.StripeID, &u.CreatedAt, &u.UpdatedAt); err != nil {
+	if err := row.Scan(&u.ID, &u.Email, &u.Plan, &u.PaymentCustomerID, &u.CreatedAt, &u.UpdatedAt); err != nil {
 		return nil, fmt.Errorf("api.pgUserResolver.ResolveUser: %w", err)
 	}
 	return u, nil

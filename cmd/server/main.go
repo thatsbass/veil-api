@@ -44,6 +44,7 @@ import (
 	"github.com/thatsbass/veil/internal/auth"
 	clerkprovider "github.com/thatsbass/veil/internal/auth/clerk"
 	"github.com/thatsbass/veil/internal/billing"
+	stripeprovider "github.com/thatsbass/veil/internal/billing/stripe"
 	"github.com/thatsbass/veil/internal/config"
 	"github.com/thatsbass/veil/internal/gateway"
 	"github.com/thatsbass/veil/internal/mailer"
@@ -99,7 +100,8 @@ func main() {
 	meter := billing.NewMeter(rdb)
 	quotaMgr := billing.NewQuotaManager(rdb)
 	billingSvc := billing.NewBillingService(meter, quotaMgr)
-	stripeHandler := billing.NewStripeHandler(cfg.StripeWebhookSecret, log.Logger)
+	paymentProvider := stripeprovider.NewProvider(cfg.StripeWebhookSecret)
+	webhookHandler := billing.NewWebhookHandler(paymentProvider, log.Logger)
 
 	// Analytics
 	analyticsSvc := analytics.NewRedisTracker(rdb)
@@ -133,7 +135,7 @@ func main() {
 
 	// Public routes
 	app.Get("/health", h.HandleHealth)
-	app.Post("/webhooks/stripe", stripeHandler.HandleWebhook)
+	app.Post("/webhooks/payment", webhookHandler.Handle)
 
 	// Dashboard handlers (/api/*)
 	userResolver := internalapi.NewPGUserResolver(db)
