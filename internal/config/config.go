@@ -8,9 +8,10 @@ import (
 )
 
 type Config struct {
-	Port     int    `mapstructure:"PORT"`
-	Host     string `mapstructure:"HOST"`
-	Env      string `mapstructure:"ENV"`
+	Port    int    `mapstructure:"PORT"`
+	Host    string `mapstructure:"HOST"`
+	BaseURL string `mapstructure:"BASE_URL"`
+	Env     string `mapstructure:"ENV"`
 
 	DatabaseURL string `mapstructure:"DATABASE_URL"`
 	RedisURL    string `mapstructure:"REDIS_URL"`
@@ -35,6 +36,7 @@ func Load() (*Config, error) {
 
 	viper.SetDefault("PORT", 3000)
 	viper.SetDefault("HOST", "localhost:3000")
+	viper.SetDefault("BASE_URL", "http://localhost:3000")
 	viper.SetDefault("ENV", "development")
 
 	cfg := &Config{}

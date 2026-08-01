@@ -1,8 +1,9 @@
 package translator
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
-	"io"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/thatsbass/veil/pkg/models"
@@ -68,6 +69,74 @@ func (t *openAITranslator) WriteResponse(c *fiber.Ctx, resp *models.CompletionRe
 	})
 }
 
-func (t *openAITranslator) WriteStreamEvent(w io.Writer, event models.StreamEvent) error {
-	return marshalSSE(w, event)
+// StreamEvents converts Anthropic SSE events to OpenAI Chat Completions streaming
+// format expected by Cursor / Aider, then writes [DONE] to close the stream.
+func (t *openAITranslator) StreamEvents(w *bufio.Writer, events <-chan models.StreamEvent) error {
+	for event := range events {
+		var err error
+		switch event.Type {
+		case "content_block_delta":
+			text := extractTextDelta(event.Delta)
+			if text == "" {
+				continue
+			}
+			err = marshalSSE(w, fiber.Map{
+				"choices": []fiber.Map{{
+					"index":         0,
+					"delta":         fiber.Map{"content": text},
+					"finish_reason": nil,
+				}},
+			})
+		case "message_delta":
+			stopReason := extractStopReason(event.Delta)
+			if stopReason == "" {
+				continue
+			}
+			err = marshalSSE(w, fiber.Map{
+				"choices": []fiber.Map{{
+					"index":         0,
+					"delta":         fiber.Map{},
+					"finish_reason": stopReason,
+				}},
+			})
+		default:
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		_ = w.Flush()
+	}
+	_, _ = fmt.Fprintf(w, "data: [DONE]\n\n")
+	_ = w.Flush()
+	return nil
+}
+
+// extractTextDelta pulls the text string from an Anthropic text_delta JSON blob.
+func extractTextDelta(raw json.RawMessage) string {
+	if raw == nil {
+		return ""
+	}
+	var d struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(raw, &d); err != nil || d.Type != "text_delta" {
+		return ""
+	}
+	return d.Text
+}
+
+// extractStopReason pulls stop_reason from an Anthropic message_delta JSON blob.
+func extractStopReason(raw json.RawMessage) string {
+	if raw == nil {
+		return ""
+	}
+	var d struct {
+		StopReason string `json:"stop_reason"`
+	}
+	if err := json.Unmarshal(raw, &d); err != nil {
+		return ""
+	}
+	return d.StopReason
 }

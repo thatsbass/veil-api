@@ -2,6 +2,7 @@ package analytics
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -32,24 +33,47 @@ func (t *redisTracker) Track(event Event) {
 	}()
 }
 
+type logPayload struct {
+	Timestamp string `json:"timestamp"`
+	Type      string `json:"type"`
+	Provider  string `json:"provider"`
+	LatencyMS int    `json:"latency_ms"`
+	Status    string `json:"status"`
+}
+
 func (t *redisTracker) publish(ctx context.Context, event Event) error {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	err := t.rdb.XAdd(ctx, &redis.XAddArgs{
+	if err := t.rdb.XAdd(ctx, &redis.XAddArgs{
 		Stream: streamName,
 		MaxLen: maxStreamLen,
 		Approx: true,
 		Values: map[string]any{
-			"user_id":      event.UserID,
-			"provider":     event.Provider,
-			"format":       event.Format,
-			"tokens_in":    fmt.Sprint(event.Usage.InputTokens),
-			"tokens_out":   fmt.Sprint(event.Usage.OutputTokens),
+			"user_id":    event.UserID,
+			"provider":   event.Provider,
+			"format":     event.Format,
+			"tokens_in":  fmt.Sprint(event.Usage.InputTokens),
+			"tokens_out": fmt.Sprint(event.Usage.OutputTokens),
+			"latency_ms": fmt.Sprint(event.LatencyMS),
+			"status":     event.Status,
 		},
-	}).Err()
+	}).Err(); err != nil {
+		return fmt.Errorf("analytics.redisTracker.publish xadd: %w", err)
+	}
+
+	payload, err := json.Marshal(logPayload{
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Type:      event.Format,
+		Provider:  event.Provider,
+		LatencyMS: event.LatencyMS,
+		Status:    event.Status,
+	})
 	if err != nil {
-		return fmt.Errorf("analytics.redisTracker.publish: %w", err)
+		return fmt.Errorf("analytics.redisTracker.publish marshal: %w", err)
+	}
+	if err := t.rdb.Publish(ctx, "logs:"+event.UserID, string(payload)).Err(); err != nil {
+		return fmt.Errorf("analytics.redisTracker.publish pubsub: %w", err)
 	}
 	return nil
 }

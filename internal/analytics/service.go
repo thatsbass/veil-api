@@ -4,10 +4,12 @@ import "github.com/thatsbass/veil/pkg/models"
 
 // Event captures the metadata for a single completed request.
 type Event struct {
-	UserID   string
-	Provider string
-	Format   string
-	Usage    models.UsageInfo
+	UserID    string
+	Provider  string
+	Format    string
+	Usage     models.UsageInfo
+	LatencyMS int
+	Status    string
 }
 
 // AnalyticsService records request events asynchronously.
