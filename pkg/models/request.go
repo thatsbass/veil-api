@@ -34,6 +34,9 @@ type ModelConfig struct {
 	Temperature *float64 `json:"temperature,omitempty"`
 	TopP        *float64 `json:"top_p,omitempty"`
 	Stream      bool     `json:"stream,omitempty"`
+	// ThinkingBudget is Claude's budget_tokens from a thinking config block.
+	// 0 means reasoning is disabled. Maps to DeepSeek output_config.effort.
+	ThinkingBudget int
 }
 
 type RequestPayload struct {

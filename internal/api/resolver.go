@@ -26,8 +26,10 @@ func NewPGUserResolver(db *pgxpool.Pool) UserResolver {
 
 func (r *pgUserResolver) ResolveUser(ctx context.Context, email string) (*models.User, error) {
 	row := r.db.QueryRow(ctx, `
-		SELECT id, email, plan, payment_customer_id, created_at, updated_at
-		FROM users WHERE email = $1
+		INSERT INTO users (email, plan)
+		VALUES ($1, 'free')
+		ON CONFLICT (email) DO UPDATE SET updated_at = NOW()
+		RETURNING id, email, plan, payment_customer_id, created_at, updated_at
 	`, email)
 	u := &models.User{}
 	if err := row.Scan(&u.ID, &u.Email, &u.Plan, &u.PaymentCustomerID, &u.CreatedAt, &u.UpdatedAt); err != nil {

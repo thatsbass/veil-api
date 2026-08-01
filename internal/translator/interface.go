@@ -1,7 +1,7 @@
 package translator
 
 import (
-	"io"
+	"bufio"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/thatsbass/veil/pkg/models"
@@ -12,6 +12,7 @@ import (
 type Translator interface {
 	ParseRequest(c *fiber.Ctx) (*models.CompletionRequest, error)
 	WriteResponse(c *fiber.Ctx, resp *models.CompletionResponse) error
-	// WriteStreamEvent serialises one SSE chunk to w (a *bufio.Writer).
-	WriteStreamEvent(w io.Writer, event models.StreamEvent) error
+	// StreamEvents reads all events from the channel and writes SSE to w,
+	// including the terminal [DONE] marker. Implementations own flushing.
+	StreamEvents(w *bufio.Writer, events <-chan models.StreamEvent) error
 }

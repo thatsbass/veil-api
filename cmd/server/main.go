@@ -41,6 +41,7 @@ import (
 	apikeys "github.com/thatsbass/veil/internal/api/keys"
 	apibilling "github.com/thatsbass/veil/internal/api/billing"
 	apiusage "github.com/thatsbass/veil/internal/api/usage"
+	apiv1 "github.com/thatsbass/veil/internal/api/v1handler"
 	"github.com/thatsbass/veil/internal/auth"
 	clerkprovider "github.com/thatsbass/veil/internal/auth/clerk"
 	"github.com/thatsbass/veil/internal/billing"
@@ -139,13 +140,28 @@ func main() {
 
 	// Dashboard handlers (/api/*)
 	userResolver := internalapi.NewPGUserResolver(db)
-	keysHandler := apikeys.NewHandler(userResolver, apikeys.NewPGKeyRepository(db))
+	keysRepo := apikeys.NewPGKeyRepository(db)
+	keysHandler := apikeys.NewHandler(userResolver, keysRepo)
 	usageHandler := apiusage.NewHandler(userResolver, billingSvc, apiusage.NewPGUsageRepository(db))
-	billingHandler := apibilling.NewHandler(userResolver, apibilling.NewPGPlanRepository(db))
+	planRepo := apibilling.NewPGPlanRepository(db)
+	billingHandler := apibilling.NewHandler(userResolver, planRepo)
+
+	// Device Authorization Flow (/auth/device)
+	deviceStore := auth.NewRedisDeviceStore(rdb)
+	deviceHandler := auth.NewDeviceHandler(deviceStore, userResolver, keysRepo, mailSvc, cfg.BaseURL, log.Logger)
+
+	var authProvider auth.AuthProvider = clerkprovider.NewProvider(cfg.ClerkSecretKey)
+
+	// Public device endpoints (no auth — CLI polls without credentials)
+	app.Post("/auth/device", deviceHandler.InitiateDeviceAuth)
+	app.Get("/auth/device/token", deviceHandler.PollToken)
+	app.Get("/auth/device/pending", deviceHandler.GetPendingDevice)
+
+	// Protected confirm endpoint — dashboard user must be authenticated
+	app.Post("/auth/device/confirm", auth.DashboardAuthMiddleware(authProvider), deviceHandler.ConfirmDevice)
 
 	// /api/* — dashboard Next.js (Clerk JWT)
-	var authProvider auth.AuthProvider = clerkprovider.NewProvider(cfg.ClerkSecretKey)
-	api := app.Group("/api", auth.DashboardAuthMiddleware(authProvider))
+	api := app.Group("/api", auth.DashboardAuthMiddleware(authProvider, userResolver))
 	api.Post("/keys", keysHandler.CreateAPIKey)
 	api.Get("/keys", keysHandler.ListAPIKeys)
 	api.Delete("/keys/:id", keysHandler.RevokeAPIKey)
@@ -155,11 +171,16 @@ func main() {
 	api.Post("/billing/upgrade", billingHandler.UpgradePlan)
 
 	// /v1/* — clients LLM (clé vl_live_xxx)
+	v1Handler := apiv1.NewHandler(billingSvc, planRepo, rdb, log.Logger)
+
 	protected := app.Group("/v1", auth.APIKeyMiddleware(authSvc))
 	protected.Get("/models", h.HandleModels)
 	protected.Post("/messages", h.HandleMessages)
 	protected.Post("/chat/completions", h.HandleChatCompletions)
 	protected.Post("/responses", h.HandleResponses)
+	protected.Get("/usage", v1Handler.GetUsage)
+	protected.Get("/billing/plan", v1Handler.GetBillingPlan)
+	protected.Get("/logs", v1Handler.StreamLogs)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	log.Info().Str("addr", addr).Msg("veil server starting")

@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog"
@@ -124,32 +125,39 @@ func (h *Handler) HandleCompletion(c *fiber.Ctx) error {
 }
 
 func (h *Handler) handleBlocking(c *fiber.Ctx, t translator.Translator, req *models.CompletionRequest, user *models.User) error {
-	resp, err := h.provider.Complete(c.Context(), req)
+	start := time.Now()
+	resp, err := h.provider.Complete(c.UserContext(), req)
 	if err != nil {
 		return h.respondError(c, err)
 	}
-	go h.recordUsage(req, resp, user)
+	go h.recordUsage(req, resp, user, int(time.Since(start).Milliseconds()), "success")
 	return t.WriteResponse(c, resp)
 }
 
 func (h *Handler) handleStream(c *fiber.Ctx, t translator.Translator, req *models.CompletionRequest, user *models.User) error {
+	// Capture UserContext before spawning the goroutine — fasthttp recycles
+	// c.Context() (*fasthttp.RequestCtx) once the handler returns, which causes
+	// a nil-pointer panic in net/http's context propagation code.
+	ctx := c.UserContext()
 	events := make(chan models.StreamEvent, 32)
 	go func() {
 		defer close(events)
-		if err := h.provider.CompleteStream(c.Context(), req, events); err != nil {
+		if err := h.provider.CompleteStream(ctx, req, events); err != nil {
 			h.log.Error().Err(err).Str("user_id", user.ID).Msg("stream error")
 		}
 	}()
 	return streamResponse(c, t, events)
 }
 
-func (h *Handler) recordUsage(req *models.CompletionRequest, resp *models.CompletionResponse, user *models.User) {
+func (h *Handler) recordUsage(req *models.CompletionRequest, resp *models.CompletionResponse, user *models.User, latencyMS int, status string) {
 	h.billing.RecordUsage(req.Meta.UserID, resp.Usage)
 	h.analytics.Track(analytics.Event{
-		UserID:   user.ID,
-		Provider: h.provider.Name(),
-		Format:   string(req.Meta.Format),
-		Usage:    resp.Usage,
+		UserID:    user.ID,
+		Provider:  h.provider.Name(),
+		Format:    string(req.Meta.Format),
+		Usage:     resp.Usage,
+		LatencyMS: latencyMS,
+		Status:    status,
 	})
 }
 
@@ -191,6 +199,16 @@ func (h *Handler) respondError(c *fiber.Ctx, err error) error {
 }
 
 func mapErrorToResponse(err error) (int, fiber.Map) {
+	var pe *provider.ProviderError
+	if errors.As(err, &pe) {
+		return pe.ClientStatus(), fiber.Map{
+			"error": fiber.Map{
+				"message": pe.Message,
+				"type":    pe.Code,
+				"code":    pe.Code,
+			},
+		}
+	}
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
 		return fiber.StatusGatewayTimeout, fiber.Map{"error": "upstream timeout"}
